@@ -8,31 +8,21 @@ module PdfHelper
     return if base != ActionController::Base
 
     base.class_eval do
-      alias_method_chain :render, :wicked_pdf
-      alias_method_chain :render_to_string, :wicked_pdf
       after_filter :clean_temp_files
     end
   end
 
-  def render_with_wicked_pdf(options = nil, *args, &block)
-    if options.is_a?(Hash) && options.has_key?(:pdf)
-      log_pdf_creation
-      options[:basic_auth] = set_basic_auth(options)
-      make_and_send_pdf(options.delete(:pdf), (WickedPdf.config || {}).merge(options))
-    else
-      render_without_wicked_pdf(options, *args, &block)
-    end
+  def wicked_pdf(options={}, *args, &block)
+    filename = options.delete(:pdf) || caller[0][/`.*'/][1..-2].split(' ').last
+    log_pdf_creation
+    options[:basic_auth] = set_basic_auth(options)
+    make_and_send_pdf(filename, (WickedPdf.config || {}).merge(options))
   end
 
-  def render_to_string_with_wicked_pdf(options = nil, *args, &block)
-    if options.is_a?(Hash) && options.has_key?(:pdf)
-      log_pdf_creation
-      options[:basic_auth] = set_basic_auth(options)
-      options.delete :pdf
-      make_pdf((WickedPdf.config || {}).merge(options))
-    else
-      render_to_string_without_wicked_pdf(options, *args, &block)
-    end
+  def wicked_pdf_to_string(options={}, *args, &block)
+    log_pdf_creation
+    options[:basic_auth] = set_basic_auth(options)
+    make_pdf((WickedPdf.config || {}).merge(options))
   end
 
   private
