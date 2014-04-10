@@ -7,6 +7,7 @@ class WickedPdf
     binary = WickedPdf::Binary.new(wkhtmltopdf_binary_path)
     @exe_path = binary.exe_path
     @binary_version = binary.version
+    @env = WickedPdf::Environment.new
   end
 
   def pdf_from_string(string, options={})
@@ -16,8 +17,8 @@ class WickedPdf
     string_file.write(string)
     string_file.close
     generated_pdf_file = WickedPdfTempfile.new("wicked_pdf_generated_file.pdf", temp_path)
-    command = "\"#{@exe_path}\" #{'-q ' unless on_windows?}#{parse_options(options)} \"file:///#{string_file.path}\" \"#{generated_pdf_file.path}\" " # -q for no errors on stdout
-    print_command(command) if in_development_mode?
+    command = "\"#{@exe_path}\" #{'-q ' unless @env.on_windows?}#{parse_options(options)} \"file:///#{string_file.path}\" \"#{generated_pdf_file.path}\" " # -q for no errors on stdout
+    print_command(command) if @env.in_development_mode?
     err = Open3.popen3(command) do |stdin, stdout, stderr|
       stderr.read
     end
@@ -37,15 +38,6 @@ class WickedPdf
   end
 
   private
-
-    def in_development_mode?
-      return Rails.env == 'development' if defined?(Rails)
-      RAILS_ENV == 'development' if defined?(RAILS_ENV)
-    end
-
-    def on_windows?
-      RbConfig::CONFIG['target_os'] =~ /mswin|mingw/
-    end
 
     def print_command(cmd)
       p "*"*15 + cmd + "*"*15
