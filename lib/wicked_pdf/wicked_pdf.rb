@@ -117,7 +117,7 @@ class WickedPdf
       return '' if arg.blank?
       r = '--cover '
       # Filesystem path or URL - hand off to wkhtmltopdf
-      if arg.include?(Rails.root.to_s) || (arg[0,4] == 'http')
+      if argument.is_a?(Pathname) || (arg[0,4] == 'http')
         r + arg
       else # HTML content
         @hf_tempfiles ||= []
