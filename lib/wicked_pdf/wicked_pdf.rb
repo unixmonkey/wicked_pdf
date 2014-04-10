@@ -1,31 +1,15 @@
 class WickedPdf
-  DEFAULT_BINARY_VERSION = Gem::Version.new('0.9.9')
-  EXE_NAME = "wkhtmltopdf"
+
   @@config = {}
   cattr_accessor :config
 
   def initialize(wkhtmltopdf_binary_path = nil)
-    @exe_path = wkhtmltopdf_binary_path || find_wkhtmltopdf_binary_path
-    raise "Location of #{EXE_NAME} unknown" if @exe_path.empty?
-    raise "Bad #{EXE_NAME}'s path" unless File.exists?(@exe_path)
-    raise "#{EXE_NAME} is not executable" unless File.executable?(@exe_path)
-
-    @binary_version = DEFAULT_BINARY_VERSION
-  end
-
-  def retreive_binary_version
-    begin
-      stdin, stdout, stderr = Open3.popen3(@exe_path + ' -V')
-      @binary_version = parse_version(stdout.gets(nil))
-    rescue StandardError
-    end
+    binary = WickedPdf::Binary.new(wkhtmltopdf_binary_path)
+    @exe_path = binary.exe_path
+    @binary_version = binary.version
   end
 
   def pdf_from_string(string, options={})
-    if WickedPdf.config[:retreive_version]
-      retreive_binary_version
-    end
-
     temp_path = options.delete(:temp_path)
     string_file = WickedPdfTempfile.new("wicked_pdf.html", temp_path)
     string_file.binmode
@@ -59,25 +43,12 @@ class WickedPdf
       RAILS_ENV == 'development' if defined?(RAILS_ENV)
     end
 
-    def get_binary_version
-      @binary_version
-    end
-
     def on_windows?
       RbConfig::CONFIG['target_os'] =~ /mswin|mingw/
     end
 
     def print_command(cmd)
       p "*"*15 + cmd + "*"*15
-    end
-
-    def parse_version(version_info)
-      match_data = /wkhtmltopdf\s*(\d*\.\d*\.\d*\w*)/.match(version_info)
-      if (match_data && (2 == match_data.length))
-        Gem::Version.new(match_data[1])
-      else
-        DEFAULT_BINARY_VERSION
-      end
     end
 
     def parse_options(options)
@@ -237,15 +208,4 @@ class WickedPdf
       end
     end
 
-    def find_wkhtmltopdf_binary_path
-      possible_locations = (ENV['PATH'].split(':')+%w[/usr/bin /usr/local/bin ~/bin]).uniq
-      exe_path ||= WickedPdf.config[:exe_path] unless WickedPdf.config.empty?
-      exe_path ||= begin
-        (defined?(Bundler) ? `bundle exec which wkhtmltopdf` : `which wkhtmltopdf`).chomp
-      rescue Exception => e
-        nil
-      end
-      exe_path ||= possible_locations.map{|l| File.expand_path("#{l}/#{EXE_NAME}") }.find{|location| File.exists? location}
-      exe_path || ''
-    end
 end

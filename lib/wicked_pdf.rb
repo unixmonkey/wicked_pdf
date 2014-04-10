@@ -24,6 +24,7 @@ rescue LoadError
 end
 
 require 'wicked_pdf/version'
+require 'wicked_pdf/binary'
 require 'wicked_pdf/railtie'
 require 'wicked_pdf/tempfile'
 require 'wicked_pdf/middleware'
