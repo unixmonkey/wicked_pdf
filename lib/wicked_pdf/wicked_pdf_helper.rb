@@ -34,6 +34,14 @@ module WickedPdfHelper
   end
 
   module Assets
+
+    def wicked_asset(path)
+      asset = Rails.application.assets.find_asset(path)
+      throw "Could not find asset '#{path}'" if asset.nil?
+      base64 = Base64.encode64(asset.to_s).gsub(/\s+/, "")
+      "data:#{asset.content_type};base64,#{Rack::Utils.escape(base64)}"
+    end
+
     def wicked_pdf_stylesheet_link_tag(*sources)
       sources.collect { |source|
         source = WickedPdfHelper.add_extension(source, 'css')
