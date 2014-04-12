@@ -35,97 +35,54 @@ module WickedPdfHelper
 
   module Assets
 
+    # borrowed from actionpack/lib/action_view/helpers/asset_url_helper.rb
+    URI_REGEXP = %r{^[-a-z]+://|^(?:cid|data):|^//}
+
     def wicked_asset(path)
-      asset = Rails.application.assets.find_asset(path)
-      throw "Could not find asset '#{path}'" if asset.nil?
-      base64 = Base64.encode64(asset.to_s).gsub(/\s+/, "")
-      "data:#{asset.content_type};base64,#{Rack::Utils.escape(base64)}"
-    end
-
-    def wicked_pdf_stylesheet_link_tag(*sources)
-      sources.collect { |source|
-        source = WickedPdfHelper.add_extension(source, 'css')
-        "<style type='text/css'>#{read_asset(source)}</style>"
-      }.join("\n").html_safe
-    end
-
-    def wicked_pdf_image_tag(img, options={})
-      image_tag wicked_pdf_asset_path(img), options
-    end
-
-    def wicked_pdf_javascript_src_tag(jsfile, options={})
-      jsfile = WickedPdfHelper.add_extension(jsfile, 'js')
-      javascript_include_tag wicked_pdf_asset_path(jsfile), options
-    end
-
-    def wicked_pdf_javascript_include_tag(*sources)
-      sources.collect { |source|
-        source = WickedPdfHelper.add_extension(source, 'js')
-        "<script type='text/javascript'>#{read_asset(source)}</script>"
-      }.join("\n").html_safe
-    end
-
-    def wicked_pdf_asset_path(asset)
-      if (pathname = asset_pathname(asset).to_s) =~ URI_REGEXP
-        pathname
+      return wicked_uri(path) if path =~ URI_REGEXP
+      asset = wicked_asset_from_assets(path) ||
+              wicked_asset_from_public(path)
+      if asset
+        wicked_base64(asset)
       else
-        "file:///#{pathname}"
+        wicked_asset_error(path)
       end
     end
 
     private
 
-    # borrowed from actionpack/lib/action_view/helpers/asset_url_helper.rb
-    URI_REGEXP = %r{^[-a-z]+://|^(?:cid|data):|^//}
-
-    def asset_pathname(source)
-      if precompiled_asset?(source)
-        if (pathname = set_protocol(asset_path(source))) =~ URI_REGEXP
-          # asset_path returns an absolute URL using asset_host if asset_host is set
-          pathname
-        else
-          File.join(Rails.public_path, asset_path(source).sub(/\A#{Rails.application.config.action_controller.relative_url_root}/, ''))
-        end
+    # wkhtmltopdf doesn't work well with protocol neutral URIs
+    def wicked_uri(uri)
+      if uri[0,2] == '//'
+        protocol = WickedPdf.config[:default_protocol] || 'http'
+        [protocol, ':', uri].join
       else
-        Rails.application.assets.find_asset(source).pathname
+        uri
       end
     end
 
-    #will prepend a http or default_protocol to a protocol realtive URL
-    def set_protocol(source)
-      protocol = WickedPdf.config[:default_protocol] || "http"
-      source = [protocol, ":", source].join if source[0,2] == "//"
-      return source
+    def wicked_asset_from_assets(path)
+      Rails.application.assets.find_asset(path)
     end
 
-    def precompiled_asset?(source)
-      Rails.configuration.assets.compile == false || source.to_s[0] == '/'
-    end
-
-    def read_asset(source)
-      if precompiled_asset?(source)
-        if set_protocol(asset_path(source)) =~ URI_REGEXP
-          read_from_uri(source)
-        else
-          IO.read(asset_pathname(source))
-        end
-      else
-        Rails.application.assets.find_asset(source).to_s
+    def wicked_asset_from_public(path)
+      environment = Rails.application.assets
+      path_parts = path.split('/').reject(&:blank?)
+      pathname = Rails.public_path.join(*path_parts)
+      if pathname.file?
+        Sprockets::StaticAsset.new(environment, pathname, pathname)
       end
     end
 
-    def read_from_uri(source)
-      encoding = ':UTF-8' if RUBY_VERSION > '1.8'
-      asset = open(asset_pathname(source), "r#{encoding}") {|f| f.read }
-      asset = gzip(asset) if WickedPdf.config[:expect_gzipped_remote_assets]
-      asset
+    def wicked_base64(asset)
+      base64 = Base64.encode64(asset.to_s).gsub(/\s+/, '')
+      "data:#{asset.content_type};base64,#{Rack::Utils.escape(base64)}"
     end
 
-    def gzip(asset)
-      stringified_asset = StringIO.new(asset)
-      gzipper = Zlib::GzipReader.new(stringified_asset)
-      gzipped_asset = gzipper.read
-    rescue Zlib::GzipFile::Error
+    def wicked_asset_error(path)
+      if WickedPdf.config[:raise_asset_errors]
+        raise ArgumentError, "Could not find asset '#{path}'"
+      end
     end
 
   end
