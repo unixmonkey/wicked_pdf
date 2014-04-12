@@ -66,7 +66,7 @@ class WickedPdfHelperAssetsTest < ActionView::TestCase
     test 'wicked_asset respects config:default_protocol' do
       WickedPdf.config[:default_protocol] = 'jim'
       assert_equal 'jim://example.com', wicked_asset('//example.com')
-      WickedPdf.config = {}
+      WickedPdf.config[:default_protocol] = 'http'
     end
 
     test 'wicked_asset returns nil if the asset doesnt exist' do
@@ -76,7 +76,7 @@ class WickedPdfHelperAssetsTest < ActionView::TestCase
     test 'wicked_asset raises an error if config:raise_asset_errors enabled' do
       WickedPdf.config[:raise_asset_errors] = true
       assert_raise(ArgumentError) { wicked_asset('nonexistent.png') }
-      WickedPdf.config = {}
+      WickedPdf.config[:raise_asset_errors] = false
     end
 
   end
